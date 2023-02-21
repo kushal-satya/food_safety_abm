@@ -29,3 +29,26 @@ death_number = np.random.rand(customer_number)
 death_number = death_number < death_rate
 death_case_number = sum(death_number)
 hospital_number
+
+def safety_testing_cost()
+    # Farm side
+    farm_cost = 0
+    for i in range(len(farm_id)):
+        farm_cost += f_test_number[i] * f_test_cost[i]
+
+    # Plot side
+    plot_cost = 0
+    for i in range(len(plot_id)):
+        plot_cost += p_test_number[i] * p_test_cost[i]
+
+    # Drop side
+    drop_cost = 0
+    for i in range(len(drop_id)):
+        drop_cost += d_test_number[i] * d_test_cost[i]
+
+    # Road side
+    road_cost = 0
+    for i in range(len(road_id)):
+        road_cost += r_test_number[i] * r_test_cost[i]
+
+    return farm_cost + plot_cost + drop_cost + road_cost
