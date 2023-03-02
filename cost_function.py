@@ -3,6 +3,16 @@
 ####### COST FUNCTION #############
 ################################
 
+
+# Farm side 
+# Cost for farmer is dependednt on the effort and on technology level by the relation of cost = effort * technology_level
+f_test_number = np.zeros(len(farm_id))
+for i in range(len(farm_id)):
+    f_test_number[i] = sum(contaminate_p[farm_box[i, 0] - 1 : farm_box[i, 1], iteration])
+
+f_test_cost = f_test_number * f_test_effort * f_tech_level
+    
+
 test_number = sum(f_test_number) + sum(p_test_number) + sum(d_test_number) + sum(r_test_number)
 
 unfound_contaminate = history_box_id_r[(contaminate_drop[:, iteration] == 0) & (contaminate_b[:, iteration] == 1)]
