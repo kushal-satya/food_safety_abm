@@ -1,0 +1,4 @@
+numpy==1.21.2
+tqdm==4.62.3
+numba==0.54.1
+matplotlib==3.4.3
