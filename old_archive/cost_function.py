@@ -1,64 +1,149 @@
+import numpy as np 
+from datetime import datetime
+import pickle
+import matplotlib.pyplot as plt
 
-################################
-####### COST FUNCTION #############
-################################
+import parameters 
+import gc
+gc.enable()
 
+class Run(object):
+    def __init__(self,parameters):
+        self.parameters = parameters
+    
+    def initiate_farms(self):
+        farms = []
+    
+    def initiate_supply_chain(self):
+        self.supply = Supply(self.parameters)
+        
+ 
+class Supply(object):
+    def __init__(self,parameters):
+        self.parameters = parameters
+        self.farms = Farms(self.parameters)
+        self.packers = Packers(self.parameters)
+        self.distributors = Distributors(self.parameters)
+        self.retailers = Retailers(self.parameters)
+        self.customers = Customers(self.parameters)
+    
+    def update_contaminate_rate(self):
+        self.farms.update_contaminate_rate()
+    
+    def find_optimal_testing_rate(self):
+        self.farms.find_optimal_testing_rate()
+    
+    def testing_with_optimal_rate(self):
+        self.farms.testing_with_optimal_rate()
+    
+    def impose_penalties_costs(self):
+        self.farms.impose_penalties_costs()
+        
+class Monthly(object):
+    def __init__(self,parameters):
+        self.parameters = parameters
+        self.monthly = Monthly(self.parameters)
+    s
+    def farmers_update_contaminate_rate(self):
+        self.supply.update_contaminate_rate()
+    
+    def find_optimal_testing_rate(self):
+        self.supply.find_optimal_testing_rate()
+    
+    def testing_with_optimal_rate(self):
+        self.supply.testing_with_optimal_rate()
+    
+    def impose_penalties_costs(self):
+        self.supply.impose_penalties_costs()
 
-# Farm side 
-# Cost for farmer is dependednt on the effort and on technology level by the relation of cost = effort * technology_level
-f_test_number = np.zeros(len(farm_id))
-for i in range(len(farm_id)):
-    f_test_number[i] = sum(contaminate_p[farm_box[i, 0] - 1 : farm_box[i, 1], iteration])
+class Main(object):
+    def __init__(self, parameters):
+        self.parameters = parameters
+        self.run = run.Run(self.parameters)
+        
+        
 
-f_test_cost = f_test_number * f_test_effort * f_tech_level
+class Farm: 
+    def __init__(self) -> None:
+        pass
     
 
-test_number = sum(f_test_number) + sum(p_test_number) + sum(d_test_number) + sum(r_test_number)
 
-unfound_contaminate = history_box_id_r[(contaminate_drop[:, iteration] == 0) & (contaminate_b[:, iteration] == 1)]
-unfound_farmid = unfound_contaminate // 10000000
-unfound_plotid = (unfound_contaminate - unfound_farmid * 10000000) // 1000
+# Class to store parameters and initial conditions
+class Parameters(object):
+    def __init__(self) -> None:
+        # Parameters for Farmer Behavior
+        [beta1,beta2,beta3,beta4] = np.around(np.random.uniform(low=0.01, high=0.2, size=(4,)),4)
+        [f1,f2,f3,f4] = np.random.rand(4)
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.beta3 = beta3
+        self.beta4 = beta4
+        self.f1 = f1
+        self.f2 = f2
+        self.f3 = f3
+        self.f4 = f4
+        
+        # Population
+        self.farm_population = 1
+        self.packer_population = 1
+        self.distributor_population = 1
+        self.retailer_population = 1
+        self.customer_population = 5000
+        
+        # Size of plot, box, and farm
+        self.plot_per_farm = 1856
+        self.box_per_P = 31562
+        self.box_per_D = 31562
+        self.box_per_R = 31562
 
-number_unfound = len(unfound_contaminate)
+        self.box_per_plot = 17
+        self.contamination_rate = 0.06
 
-cur_customer = 1
-contaminate_customer = []
-for i in range(len(history_box_id_cus)):
-    cur_farmid = history_box_id_cus[i, iteration] // 100000000000000
-    cur_plotid = (history_box_id_cus[i, iteration] - cur_farmid * 100000000000000) // 100000000000
-    if (cur_farmid in unfound_farmid) and (cur_plotid in unfound_plotid):
-        contaminate_customer.append(history_box_id_cus[i, iteration])
-        cur_customer += 1
+        self.d_test_rate = 0.0
+        self.r_test_rate = 0.0
+        
+        # Initialising some lists
+        self.box_ids_l=[]
+        self.box_ids_C_l=[]
+        self.dropped_boxes_F_l=[]
+        self.dropped_boxes_P_l=[]
+        self.dropped_boxes_D_l=[]
+        self.dropped_boxes_R_l=[]
+        self.dropped_boxes_C_l=[]
+        self.detection_percent_l=[]
+        
+        self.iterations = 10
 
-# Customer side
-customer_number = len(contaminate_customer)
-ill_number = np.random.rand(customer_number)
-hospital_number = np.random.rand(customer_number)
-death_number = np.random.rand(customer_number)
+        # Test cost at each stage
+        self.test_cost_F = 350
+        self.test_cost_P = 50
+        self.test_cost_D = 50
+        self.test_cost_R = 50
 
-death_number = death_number < death_rate
-death_case_number = sum(death_number)
-hospital_number
+        # Customer demand
+        self.box_cap = 50
+        self.number_plot = self.farm_population * self.plot_per_farm
+        self.number_box = self.number_plot * self.box_per_plot
+        self.customer_number = int(self.number_box * self.box_cap * (0.80 - self.contamination_rate))
+        self.customer_demand = np.floor(np.abs(np.random.normal(1, 2, (self.customer_number, 1))))
 
-def safety_testing_cost()
-    # Farm side
-    farm_cost = 0
-    for i in range(len(farm_id)):
-        farm_cost += f_test_number[i] * f_test_cost[i]
+        # Customer illness cost
+        self.ill_rate = 0.04
+        self.hospital_rate = 0.0164
+        self.death_rate = 0.000041
+        self.ill_compensation = 719
+        self.hospital_compensation = 18438
+        self.death_compensation = 1764112
 
-    # Plot side
-    plot_cost = 0
-    for i in range(len(plot_id)):
-        plot_cost += p_test_number[i] * p_test_cost[i]
+        # Recall and Trace cost
+        self.unit_recall_labor_cost = 10
+        self.unit_trace_labor_cost = 10
+        self.price_per_box = 100
 
-    # Drop side
-    drop_cost = 0
-    for i in range(len(drop_id)):
-        drop_cost += d_test_number[i] * d_test_cost[i]
-
-    # Road side
-    road_cost = 0
-    for i in range(len(road_id)):
-        road_cost += r_test_number[i] * r_test_cost[i]
-
-    return farm_cost + plot_cost + drop_cost + road_cost
+        # Transportation cost
+        self.unit_trans_cost = 0.007
+        self.cost_indicator = 1
+        self.F_P_distance = 5
+        self.P_D_distance = 2983
+        self.D_R_distance = 11
