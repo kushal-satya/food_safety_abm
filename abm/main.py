@@ -7,67 +7,14 @@ import parameters
 import gc
 gc.enable()
 
-class Run(object):
-    def __init__(self,parameters):
-        self.parameters = parameters
-    
-    def initiate_farms(self):
-        farms = []
-    
-    def initiate_supply_chain(self):
-        self.supply = Supply(self.parameters)
-        
- 
-class Supply(object):
-    def __init__(self,parameters):
-        self.parameters = parameters
-        self.farms = Farms(self.parameters)
-        self.packers = Packers(self.parameters)
-        self.distributors = Distributors(self.parameters)
-        self.retailers = Retailers(self.parameters)
-        self.customers = Customers(self.parameters)
-    
-    def update_contaminate_rate(self):
-        self.farms.update_contaminate_rate()
-    
-    def find_optimal_testing_rate(self):
-        self.farms.find_optimal_testing_rate()
-    
-    def testing_with_optimal_rate(self):
-        self.farms.testing_with_optimal_rate()
-    
-    def impose_penalties_costs(self):
-        self.farms.impose_penalties_costs()
-        
-class Monthly(object):
-    def __init__(self,parameters):
-        self.parameters = parameters
-        self.monthly = Monthly(self.parameters)
-    s
-    def farmers_update_contaminate_rate(self):
-        self.supply.update_contaminate_rate()
-    
-    def find_optimal_testing_rate(self):
-        self.supply.find_optimal_testing_rate()
-    
-    def testing_with_optimal_rate(self):
-        self.supply.testing_with_optimal_rate()
-    
-    def impose_penalties_costs(self):
-        self.supply.impose_penalties_costs()
-
 class Main(object):
     def __init__(self, parameters):
         self.parameters = parameters
         self.run = run.Run(self.parameters)
         
-        
-
 class Farm: 
     def __init__(self) -> None:
         pass
-    
-
 
 # Class to store parameters and initial conditions
 class Parameters(object):
