@@ -6,17 +6,6 @@ import matplotlib.pyplot as plt
 import parameters 
 import gc
 gc.enable()
-
-class Run(object):
-    def __init__(self,parameters):
-        self.parameters = parameters
-    
-    def initiate_farms(self):
-        farms = []
-    
-    def initiate_supply_chain(self):
-        self.supply = Supply(self.parameters)
-        
  
 class Supply(object):
     def __init__(self,parameters):
