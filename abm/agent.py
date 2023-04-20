@@ -7,6 +7,54 @@ import parameters
 import gc
 gc.enable()
  
+class Farm:
+    def __init__(self, id, technology_level, initial_contamination_rate, region_mean_contamination_rate):
+        self.id = id
+        self.technology_level = technology_level
+        self.contamination_rate = initial_contamination_rate
+        self.region_mean_contamination_rate = region_mean_contamination_rate
+        self.cost_effort = 0
+        self.cost_technology = 0
+        self.penalties = [0, 0, 0, 0, 0]
+        self.testing_regimes = [0, 0, 0, 0]
+        
+    def update_contamination_rate(self, c, k, t):
+        # calculate new contamination rate based on Eq. (3)
+        c_j_t = c[self.id][t]
+        k_j_t = k[self.id][t]
+        alpha_j_t = np.exp(-c_j_t * k_j_t)
+        self.contamination_rate = alpha_j_t * self.region_mean_contamination_rate
+        
+    def calculate_cost(self, f, beta, P, c_e, c_k):
+        # calculate total cost function based on Eq. (4)
+        f1, f2, f3, f4, f5 = f
+        beta1, beta2, beta3, beta4 = beta
+        numerator = f1 * beta1 + f2 * (1 - beta1) * beta2 + f3 * (1 - beta1) * (1 - beta2) * beta3 + \
+                    f4 * (1 - beta1) * (1 - beta2) * (1 - beta3) * beta4 + f5 * (1 - beta1) * (1 - beta2) * \
+                    (1 - beta3) * (1 - beta4) * P
+        denominator = (c_e + c_k) * (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4)
+        self.cost_effort = c_e
+        self.cost_technology = c_k
+        self.penalties = [f1, f2, f3, f4, f5]
+        self.testing_regimes = [beta1, beta2, beta3, beta4]
+        return numerator / denominator
+        
+    def update_risk_control_behavior(self, f, beta, P, c_e, c_k, c, k, t, neighbors):
+        # update risk control behavior based on Eq. (5) and the behavior of neighboring farms
+        cost = self.calculate_cost(f, beta, P, c_e, c_k)
+        for neighbor in neighbors:
+            cost += neighbor.calculate_cost(f, beta, P, c_e, c_k)
+        self.cost_effort = c_e
+        self.cost_technology = c_k
+        self.penalties = [f1, f2, f3, f4, f5]
+        self.testing_regimes = [beta1, beta2, beta3, beta4]
+        self.contamination_rate = self.region_mean_contamination_rate
+        self.contamination_rate += np.random.normal(loc=0, scale=self.technology_level)
+        self.contamination_rate += np.random.uniform(low=-1, high=1) * c[self.id][t]
+        self.contamination_rate += np.sum([np.random.uniform(low=-1, high=1) * neighbor.contamination_rate for neighbor in neighbors])
+        self.update_contamination_rate(c, k, t)
+        self.cost = self.calculate_cost(f, beta, P, c_e, c_k)
+
 class Supply(object):
     def __init__(self,parameters):
         self.parameters = parameters
