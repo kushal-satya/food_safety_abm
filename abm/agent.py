@@ -93,19 +93,6 @@ class Monthly(object):
     def impose_penalties_costs(self):
         self.supply.impose_penalties_costs()
 
-class Main(object):
-    def __init__(self, parameters):
-        self.parameters = parameters
-        self.run = run.Run(self.parameters)
-        
-        
-
-class Farm: 
-    def __init__(self) -> None:
-        pass
-    
-
-
 # Class to store parameters and initial conditions
 class Parameters(object):
     def __init__(self) -> None:

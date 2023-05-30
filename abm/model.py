@@ -164,3 +164,42 @@ def customer_illness_cost(box_ids_R_C,contamination_mask):
 
 def recall_cost(contamination_mask):
     return sum(contamination_mask)* (unit_recall_labor_cost+unit_trace_labor_cost+price_per_box)
+
+
+class Run(object):
+    def __init__(self,parameters):
+        self.parameters = parameters
+    
+    def initiate_farms(self):
+        farms = []
+    
+    def initiate_supply_chain(self):
+        self.supply = Supply(self.parameters)     
+
+class Farms(object):
+    def __init__(self,parameters):
+        self.parameters = parameters
+        self.farms = []
+        self.farm_ids = []
+        self.total_boxes = parameters.farm_population * parameters.plot_per_farm * parameters.box_per_plot
+        self.box_ids = self.generate_box_ids_numpy(parameters.farm_population, parameters.plot_per_farm, parameters.box_per_plot)
+
+    # New method to find the optimal testing rates for each stage
+    def find_optimal_testing_rate(self, parameters):
+        min_cost = float("inf")
+        optimal_test_rates = None
+        for f_test_rate in parameters.f_test_range:
+            self.parameters.f_test_rate = f_test_rate
+            for p_test_rate in parameters.p_test_range:
+                self.parameters.p_test_rate = p_test_rate
+                for d_test_rate in parameters.d_test_range:
+                    self.parameters.d_test_rate = d_test_rate
+                    for r_test_rate in parameters.r_test_range:
+                        self.parameters.r_test_rate = r_test_rate
+                        total_cost = self.run_test(parameters)
+                        if total_cost < min_cost:
+                            min_cost = total_cost
+                            optimal_test_rates = (f_test_rate, p_test_rate, d_test_rate, r_test_rate)
+        self.parameters.f_test_rate, self.parameters.p_test_rate, self.parameters.d_test_rate, self.parameters.r_test_rate = optimal_test_rates
+
+    # Rest of the code remains the same as before
