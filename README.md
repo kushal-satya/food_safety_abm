@@ -13,6 +13,7 @@ This repository contains the code for a study on the risk management strategy of
 - main.py
 - model.ipynb
 - requirements.txt
+- abm.ipynb
 
 ### **How to use** 
 1. Install the required packages using pip
