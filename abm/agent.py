@@ -37,6 +37,8 @@ class Farm:
         self.cost_technology = c_k
         self.penalties = [f1, f2, f3, f4, f5]
         self.testing_regimes = [beta1, beta2, beta3, beta4]
+        
+    
         return numerator / denominator
         
     def update_risk_control_behavior(self, f, beta, P, c_e, c_k, c, k, t, neighbors):
