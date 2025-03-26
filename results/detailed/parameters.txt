@@ -1,0 +1,10 @@
+Number of farmers: 150
+- Risk neutral: 49
+- Risk averse: 49
+- Risk loving: 52
+Time steps: 100
+Penalty values: [100.0, 300.0, 600.0, 1000.0, 5000.0]
+Testing probabilities: [0.1, 0.15, 0.2, 0.25]
+Identification probability: 0.5
+Effort cost range: (200, 500)
+Technology cost range: (500, 1000)

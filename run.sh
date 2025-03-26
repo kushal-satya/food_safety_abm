@@ -31,42 +31,42 @@ mkdir -p results/detailed
 echo "Running baseline scenario (equal distribution of risk types)..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/baseline --risk_neutral_pct 0.33 --risk_averse_pct 0.33 --risk_loving_pct 0.34 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report
 
 echo "Running mostly risk averse scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/mostly_risk_averse --risk_neutral_pct 0.2 --risk_averse_pct 0.6 --risk_loving_pct 0.2 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report
 
 echo "Running mostly risk loving scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/mostly_risk_loving --risk_neutral_pct 0.2 --risk_averse_pct 0.2 --risk_loving_pct 0.6 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report
 
 echo "Running mostly risk neutral scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/mostly_risk_neutral --risk_neutral_pct 0.6 --risk_averse_pct 0.2 --risk_loving_pct 0.2 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report
 
 echo "Running high penalty scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/high_penalty --risk_neutral_pct 0.33 --risk_averse_pct 0.33 --risk_loving_pct 0.34 \
-    --penalty_multiplier 2.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 2.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report
 
 echo "Running high testing scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/high_testing --risk_neutral_pct 0.33 --risk_averse_pct 0.33 --risk_loving_pct 0.34 \
-    --penalty_multiplier 1.0 --testing_multiplier 2.0 --id_probability 0.5 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 2.0 --identification_prob 0.5 --html_report
 
 echo "Running low identification probability scenario..."
 python3 run_farmer_risk_control_model.py --num_farmers 100 --time_steps 50 --seed 42 \
     --output_dir results/low_id_prob --risk_neutral_pct 0.33 --risk_averse_pct 0.33 --risk_loving_pct 0.34 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.2 --html_report
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.2 --html_report
 
 echo "Running detailed analysis with longer simulation..."
 python3 run_farmer_risk_control_model.py --num_farmers 150 --time_steps 100 --seed 42 \
     --output_dir results/detailed --risk_neutral_pct 0.33 --risk_averse_pct 0.33 --risk_loving_pct 0.34 \
-    --penalty_multiplier 1.0 --testing_multiplier 1.0 --id_probability 0.5 --html_report --analyze
+    --penalty_multiplier 1.0 --testing_multiplier 1.0 --identification_prob 0.5 --html_report --analyze
 
 # Create an index.html file to navigate between the results
 echo "Creating index.html to navigate between scenarios..."
