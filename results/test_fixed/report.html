@@ -1,0 +1,240 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Farmer Risk Control Behaviors - Simulation Results</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f8f9fa;
+                color: #333;
+            }
+            h1, h2 {
+                color: #0056b3;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 10px;
+            }
+            .plot-container {
+                background-color: white;
+                border-radius: 5px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                margin: 20px 0;
+                padding: 20px;
+            }
+            .plot {
+                width: 100%;
+                max-width: 1000px;
+                margin: 10px auto;
+                display: block;
+            }
+            .plot-title {
+                font-size: 18px;
+                font-weight: bold;
+                margin: 10px 0;
+                text-align: center;
+            }
+            .description {
+                margin: 15px 0;
+                line-height: 1.5;
+            }
+            .equation {
+                font-family: "Times New Roman", serif;
+                font-style: italic;
+                background-color: #f4f4f4;
+                padding: 10px;
+                border-radius: 3px;
+                text-align: center;
+                margin: 10px 0;
+            }
+            .navbar {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                background-color: #343a40;
+                padding: 10px 0;
+                z-index: 1000;
+            }
+            .navbar ul {
+                list-style-type: none;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+            }
+            .navbar li {
+                margin: 0 15px;
+            }
+            .navbar a {
+                color: white;
+                text-decoration: none;
+                padding: 8px 12px;
+                border-radius: 3px;
+                transition: background-color 0.3s;
+            }
+            .navbar a:hover {
+                background-color: #495057;
+            }
+            .content {
+                margin-top: 60px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="navbar">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#model">Model Details</a></li>
+                <li><a href="#results">Simulation Results</a></li>
+                <li><a href="#individual">Individual Farmers</a></li>
+            </ul>
+        </div>
+        
+        <div class="content">
+            <h1 id="overview">Farmer Risk Control Behaviors - Simulation Results</h1>
+            
+            <div class="plot-container">
+                <p class="description">
+                    This report presents the results of an agent-based simulation of farmers' risk control behaviors
+                    in a food safety context. The model explores how different types of farmers (risk neutral, risk averse,
+                    and risk loving) adjust their risk control efforts in response to testing regimes, penalties, and technology levels.
+                </p>
+            </div>
+            
+            <h2 id="model">Model Details</h2>
+            
+            <div class="plot-container">
+                <p class="description">
+                    <strong>Key Features of the Model:</strong>
+                </p>
+                <ul>
+                    <li>Three farmer types: Risk Neutral, Risk Averse, and Risk Loving</li>
+                    <li>Exponential function for risk probability</li>
+                    <li>Cost function based on testing probabilities and penalties</li>
+                    <li>Dynamic technology adaptation</li>
+                    <li>Neighbor influence on decision making</li>
+                </ul>
+                
+                <p class="description">
+                    <strong>Key Equations:</strong>
+                </p>
+                <p class="description">
+                    Contamination Rate Equation (3):
+                </p>
+                <p class="equation">
+                    σ<sub>j</sub><sup>t</sup> = e<sup>(-c<sub>j</sub><sup>t</sup> × k<sub>j</sub>)</sup>
+                </p>
+                <p class="description">
+                    where σ<sub>j</sub><sup>t</sup> is the contamination rate, c<sub>j</sub><sup>t</sup> is the risk control effort,
+                    and k<sub>j</sub> is the technology level of farmer j at time t.
+                </p>
+                
+                <p class="description">
+                    Cost Function Equation (4):
+                </p>
+                <p class="equation">
+                    f = (f<sub>1</sub>β<sub>1</sub> + f<sub>2</sub>(1-β<sub>1</sub>)β<sub>2</sub> + f<sub>3</sub>(1-β<sub>1</sub>)(1-β<sub>2</sub>)β<sub>3</sub> + f<sub>4</sub>(1-β<sub>1</sub>)(1-β<sub>2</sub>)(1-β<sub>3</sub>)β<sub>4</sub> + f<sub>5</sub>(1-β<sub>1</sub>)(1-β<sub>2</sub>)(1-β<sub>3</sub>)(1-β<sub>4</sub>)P) / ((c<sub>e</sub>+c<sub>k</sub>)(1-β<sub>1</sub>)(1-β<sub>2</sub>)(1-β<sub>3</sub>)(1-β<sub>4</sub>))
+                </p>
+                <p class="description">
+                    where f<sub>1</sub> to f<sub>5</sub> are penalties, β<sub>1</sub> to β<sub>4</sub> are testing probabilities,
+                    P is the probability of product identification, and c<sub>e</sub> and c<sub>k</sub> are effort and technology costs.
+                </p>
+                
+                <p class="description">
+                    A farmer's optimal contamination rate can be found by minimizing the cost function (Eq. 5).
+                </p>
+            </div>
+            
+            <h2 id="results">Simulation Results</h2>
+    
+            <div class="plot-container" id="alpha_distribution_by_risk">
+                <p class="plot-title">Alpha Distribution By Risk</p>
+                <img class="plot" src="alpha_distribution_by_risk.png" alt="Alpha Distribution By Risk">
+            </div>
+        
+            <div class="plot-container" id="effort_distribution_over_time">
+                <p class="plot-title">Effort Distribution Over Time</p>
+                <img class="plot" src="effort_distribution_over_time.png" alt="Effort Distribution Over Time">
+            </div>
+        
+            <div class="plot-container" id="effort_heatmap">
+                <p class="plot-title">Effort Heatmap</p>
+                <img class="plot" src="effort_heatmap.png" alt="Effort Heatmap">
+            </div>
+        
+            <div class="plot-container" id="farmer_network">
+                <p class="plot-title">Farmer Network</p>
+                <img class="plot" src="farmer_network.png" alt="Farmer Network">
+            </div>
+        
+            <div class="plot-container" id="individual_trajectories_0">
+                <p class="plot-title">Individual Trajectories 0</p>
+                <img class="plot" src="individual_trajectories_0.png" alt="Individual Trajectories 0">
+            </div>
+        
+            <div class="plot-container" id="individual_trajectories_1">
+                <p class="plot-title">Individual Trajectories 1</p>
+                <img class="plot" src="individual_trajectories_1.png" alt="Individual Trajectories 1">
+            </div>
+        
+            <div class="plot-container" id="individual_trajectories_2">
+                <p class="plot-title">Individual Trajectories 2</p>
+                <img class="plot" src="individual_trajectories_2.png" alt="Individual Trajectories 2">
+            </div>
+        
+            <div class="plot-container" id="sensitivity_P">
+                <p class="plot-title">Sensitivity P</p>
+                <img class="plot" src="sensitivity_P.png" alt="Sensitivity P">
+            </div>
+        
+            <div class="plot-container" id="sensitivity_beta">
+                <p class="plot-title">Sensitivity Beta</p>
+                <img class="plot" src="sensitivity_beta.png" alt="Sensitivity Beta">
+            </div>
+        
+            <div class="plot-container" id="sensitivity_f">
+                <p class="plot-title">Sensitivity F</p>
+                <img class="plot" src="sensitivity_f.png" alt="Sensitivity F">
+            </div>
+        
+            <div class="plot-container" id="simulation_results">
+                <p class="plot-title">Simulation Results</p>
+                <img class="plot" src="simulation_results.png" alt="Simulation Results">
+            </div>
+        
+            <div class="plot-container" id="technology_over_time">
+                <p class="plot-title">Technology Over Time</p>
+                <img class="plot" src="technology_over_time.png" alt="Technology Over Time">
+            </div>
+        
+            <div class="plot-container" id="technology_vs_contamination">
+                <p class="plot-title">Technology Vs Contamination</p>
+                <img class="plot" src="technology_vs_contamination.png" alt="Technology Vs Contamination">
+            </div>
+        
+            <div class="plot-container" id="technology_vs_effort">
+                <p class="plot-title">Technology Vs Effort</p>
+                <img class="plot" src="technology_vs_effort.png" alt="Technology Vs Effort">
+            </div>
+        
+            <h2 id="individual">Conclusions</h2>
+            <div class="plot-container">
+                <p class="description">
+                    The simulation results demonstrate how farmers with different risk preferences adjust their
+                    risk control efforts over time. Risk averse farmers tend to invest more in risk control measures
+                    and technology, resulting in lower contamination rates but higher costs. Risk loving farmers
+                    take more chances with lower control efforts, which can result in higher contamination rates
+                    but potentially lower costs in some scenarios.
+                </p>
+                <p class="description">
+                    The model illustrates the importance of considering heterogeneous risk preferences in
+                    food safety regulation and policy design. Effective policies should consider the diverse
+                    behaviors of different farmer types to achieve optimal food safety outcomes.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    
