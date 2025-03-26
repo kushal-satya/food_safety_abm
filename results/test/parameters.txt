@@ -1,0 +1,8 @@
+Number of farmers: 10
+Time steps: 5
+Random seed: 42
+Penalty values: [100.0, 200.0, 300.0, 400.0, 500.0]
+Testing probabilities: [0.1, 0.2, 0.3, 0.4]
+Identification probability: 0.5
+Effort cost range: (0.1, 1.0)
+Technology cost range: (0.1, 1.0)
