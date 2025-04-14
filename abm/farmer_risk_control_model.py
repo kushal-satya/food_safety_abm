@@ -58,6 +58,20 @@ class Farmer:
         self.penalties = [0, 0, 0, 0, 0]  # f1, f2, f3, f4, f5
         self.testing_regimes = [0, 0, 0, 0]  # β1, β2, β3, β4
         
+        # New parameters for tracking individual experience
+        self.was_tested = False           # D₁ in Eq. 6 - whether farmer was tested in previous step
+        self.contamination_detected = False  # D₂ in Eq. 6 - whether contamination was detected
+        self.tech_innovation_adopted = False  # D₃ in Eq. 7 - technology innovation adoption
+        
+        # Parameters for behavioral equations
+        self.lambda1 = np.random.uniform(0.01, 0.05)  # Impact of being tested on effort
+        self.lambda2 = np.random.uniform(0.05, 0.15)  # Impact of detected contamination on effort
+        self.lambda3 = np.random.uniform(0.01, 0.05)  # Impact of peer contamination on effort
+        
+        self.omega1 = np.random.uniform(0.02, 0.08)  # Impact of own contamination on technology
+        self.omega2 = np.random.uniform(0.01, 0.05)  # Impact of peer contamination on technology
+        self.omega3 = np.random.uniform(0.05, 0.15)  # Impact of innovation adoption on technology
+        
     def calculate_contamination_rate(self, t):
         """
         Calculate contamination rate using the exponential function from Eq. (3)
@@ -149,33 +163,44 @@ class Farmer:
         
         return cost
     
-    def update_technology(self, neighbors=None, learning_rate=0.05):
+    def update_technology(self, neighbors=None):
         """
-        Update the farmer's technology level based on own experience and neighbors
+        Update the farmer's technology level based on own experience,
+        neighbor effects, and innovation adoption (Equation 7)
         
         Parameters:
         -----------
         neighbors : list of Farmer, optional
             List of neighboring farmers that may influence this farmer's technology
-        learning_rate : float, optional
-            Rate at which the farmer adjusts technology level
         """
-        # Base technology adjustment (slight random drift)
-        tech_adjustment = np.random.normal(0, 0.02)
+        # Starting technology level (k_j^{T-1})
+        current_tech = self.technology_level
         
-        # Adjust based on own contamination rate (if high contamination, increase technology)
-        if self.contamination_rate is not None and self.contamination_rate > 0.5:
-            tech_adjustment += learning_rate * 0.5
+        # Own contamination effect (ω₁D₂ⱼᵀ⁻¹)
+        own_contamination_effect = self.omega1 * (1 if self.contamination_detected else 0)
         
-        # Adjust based on neighbors' technology levels
-        if neighbors:
-            neighbor_avg_tech = np.mean([n.technology_level for n in neighbors])
-            if neighbor_avg_tech > self.technology_level:
-                # If neighbors have better technology, learn from them
-                tech_adjustment += learning_rate * (neighbor_avg_tech - self.technology_level)
+        # Peer contamination effect (ω₂∑D₂ᵢᵀ⁻¹)
+        peer_effect = 0
+        if neighbors and len(neighbors) > 0:
+            # Count neighbors with detected contamination
+            detected_count = sum(1 for n in neighbors if n.contamination_detected)
+            peer_effect = self.omega2 * detected_count
         
-        # Apply adjustment with bounds
-        self.technology_level = max(0.1, min(0.9, self.technology_level + tech_adjustment))
+        # Innovation adoption effect (ω₃D₃ⱼᵀ)
+        innovation_effect = self.omega3 * (1 if self.tech_innovation_adopted else 0)
+        
+        # Random small fluctuation to add realism
+        random_adjustment = np.random.normal(0, 0.01)
+        
+        # Update technology level using Equation 7
+        new_tech = current_tech + own_contamination_effect + peer_effect + innovation_effect + random_adjustment
+        
+        # Keep technology level within bounds
+        self.technology_level = max(0.1, min(0.9, new_tech))
+        
+        # Reset flags for next time step
+        # We'll set these in the run_simulation method based on testing outcomes
+        self.tech_innovation_adopted = False
         
         return self.technology_level
     
@@ -267,7 +292,64 @@ class Farmer:
         
         return self.alpha
     
-    def update(self, t, f, beta, P, c_e, c_k, neighbors=None):
+    def update_alpha(self, neighbors=None, regional_benchmark=1):
+        """
+        Update the farmer's risk control effort based on testing experience,
+        detected contamination, and neighbor effects (Equation 6)
+        
+        Parameters:
+        -----------
+        neighbors : list of Farmer, optional
+            List of neighboring farmers that may influence this farmer's decisions
+        regional_benchmark : float, optional
+            Benchmark number/rate of detected contamination (h in Eq. 6)
+        """
+        # Current risk control effort (c_j^{T-1})
+        current_alpha = self.alpha
+        
+        # Testing effect (λ₁D₁ⱼᵀ⁻¹)
+        testing_effect = self.lambda1 * (1 if self.was_tested else 0)
+        
+        # Contamination detection effect (λ₂D₂ⱼᵀ⁻¹)
+        detection_effect = self.lambda2 * (1 if self.contamination_detected else 0)
+        
+        # Peer/regional effect (λ₃∑(D₂ᵢᵀ⁻¹ - h))
+        peer_effect = 0
+        if neighbors and len(neighbors) > 0:
+            # Calculate region contamination relative to benchmark
+            detected_count = sum(1 for n in neighbors if n.contamination_detected)
+            regional_effect = detected_count - regional_benchmark
+            peer_effect = self.lambda3 * regional_effect
+        
+        # External shock/policy effect (δᵀ)
+        policy_effect = 0  # Can be set to a non-zero value to simulate external policy change
+        
+        # Risk preference adjustment - different farmer types respond differently
+        if self.risk_preference == self.RISK_AVERSE:
+            # Risk averse farmers are more responsive to contamination
+            detection_effect *= 1.5
+            peer_effect *= 1.2
+        elif self.risk_preference == self.RISK_LOVING:
+            # Risk loving farmers are less responsive to testing and more resistant to effort increases
+            testing_effect *= 0.7
+            detection_effect *= 0.8
+        
+        # Random small fluctuation to add realism
+        random_adjustment = np.random.normal(0, 0.01)
+        
+        # Update risk control effort using Equation 6
+        new_alpha = current_alpha + testing_effect + detection_effect + peer_effect + policy_effect + random_adjustment
+        
+        # Keep alpha within bounds
+        self.alpha = max(0.05, min(0.95, new_alpha))
+        
+        # Reset flags for next time step
+        self.was_tested = False
+        self.contamination_detected = False
+        
+        return self.alpha
+    
+    def update(self, t, f, beta, P, c_e, c_k, neighbors=None, regional_benchmark=1):
         """
         Update the farmer's risk control effort and contamination rate for time step t
         
@@ -278,12 +360,34 @@ class Farmer:
         f, beta, P, c_e, c_k : model parameters as described in calculate_cost
         neighbors : list of Farmer, optional
             List of neighboring farmers that may influence this farmer's decision
+        regional_benchmark : float, optional
+            Benchmark number/rate of detected contamination in region
         """
-        # Update technology level
+        # Two-step update process:
+        # 1. Use equation-based update methods (Eq. 6 & 7) for individual evolution
+        # 2. Fine-tune with optimization-based approach
+
+        # Step 1: Update based on behavioral equations
+        # Update technology level (Eq. 7)
         self.update_technology(neighbors)
         
-        # Find optimal alpha
-        self.find_optimal_contamination_rate(f, beta, P, c_e, c_k)
+        # Update risk control effort (Eq. 6)
+        self.update_alpha(neighbors, regional_benchmark)
+        
+        # Step 2: Fine-tune with optimization (optional based on risk type)
+        # Risk averse farmers rely more on equation-based updates (cautious)
+        # Risk loving farmers optimize more aggressively (opportunistic)
+        
+        if self.risk_preference == self.RISK_NEUTRAL:
+            # Balanced approach - equal weight to both mechanisms
+            current_alpha = self.alpha
+            optimal_alpha = self.find_optimal_contamination_rate(f, beta, P, c_e, c_k)
+            self.alpha = 0.5 * current_alpha + 0.5 * optimal_alpha
+        elif self.risk_preference == self.RISK_LOVING:
+            # Risk lovers focus more on short-term optimization
+            current_alpha = self.alpha
+            optimal_alpha = self.find_optimal_contamination_rate(f, beta, P, c_e, c_k)
+            self.alpha = 0.3 * current_alpha + 0.7 * optimal_alpha
         
         # Calculate contamination rate
         self.contamination_rate = self.calculate_contamination_rate(t)
@@ -414,11 +518,11 @@ class FarmerRiskControlModel:
                 alpha=initial_alpha, 
                 technology_level=initial_technology,
                 risk_preference=Farmer.RISK_LOVING,
-                risk_coefficient=np.random.uniform(0.8, 1.5)  # Random risk coefficient
+                risk_coefficient=np.random.uniform(0.5, 1.2)  # Random risk coefficient
             )
             self.farmers.append(farmer)
-            
-        # Initialize arrays to store aggregate results by risk type
+        
+        # Initialize history arrays
         self.mean_alpha_history = np.zeros(time_steps)
         self.mean_contamination_history = np.zeros(time_steps)
         self.mean_cost_history = np.zeros(time_steps)
@@ -451,22 +555,148 @@ class FarmerRiskControlModel:
         Parameters:
         -----------
         f : list of float
-            Penalties at test points 1-4 and from illness (f1, f2, f3, f4, f5)
+            Penalties at test points 1-4 and from illness
         beta : list of float
-            Testing probabilities at test points 1-4 (β1, β2, β3, β4)
+            Testing probabilities at test points 1-4
         P : float
-            Probability that farmer's eligible products can be identified
+            Probability that a farmer's eligible products can be identified
         """
         self.f = f
         self.beta = beta
         self.P = P
     
+    def enable_differential_testing(self, enable=True):
+        """
+        Enable or disable the differential testing strategy where risk-loving farmers 
+        receive more intensive testing than risk-averse or risk-neutral farmers.
+        
+        Parameters:
+        -----------
+        enable : bool, optional
+            Whether to enable differential testing (default: True)
+        """
+        self.differential_testing = enable
+        if enable:
+            print("Differential testing strategy enabled: Risk-loving farmers will be tested more intensively.")
+        else:
+            print("Uniform testing strategy enabled: All farmers receive equal testing rates.")
+    
+    def set_test_identification_probability(self, prob):
+        """
+        Set the identification probability for tests (accuracy of tests).
+        Lower values simulate less accurate testing technology.
+        
+        Parameters:
+        -----------
+        prob : float
+            Probability that a test correctly identifies contamination (0-1)
+        """
+        self.test_identification_prob = max(0.1, min(1.0, prob))
+        print(f"Test identification probability set to {self.test_identification_prob}")
+    
+    def analyze_testing_strategies(self, output_dir='results/testing_strategies'):
+        """
+        Analyze the effect of different testing strategies on contamination rates and costs.
+        Compares uniform testing versus targeted testing of risk-loving farmers.
+        
+        Parameters:
+        -----------
+        output_dir : str, optional
+            Directory to save the results
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Store current parameters to restore later
+        current_beta = self.beta.copy()
+        current_differential_testing = hasattr(self, 'differential_testing') and self.differential_testing
+        
+        testing_rates = [0.5, 1.0, 1.5, 2.0]  # Multipliers for testing rates
+        strategies = ['uniform', 'differential']
+        
+        results = {
+            'testing_rate': [],
+            'strategy': [],
+            'mean_contamination': [],
+            'mean_cost': [],
+            'risk_neutral_contamination': [],
+            'risk_averse_contamination': [],
+            'risk_loving_contamination': [],
+            'risk_neutral_cost': [],
+            'risk_averse_cost': [],
+            'risk_loving_cost': []
+        }
+        
+        # Run simulations for each testing rate and strategy
+        for rate in testing_rates:
+            for strategy in strategies:
+                # Set testing parameters
+                self.beta = [
+                    min(0.95, 0.1 * rate),
+                    min(0.95, 0.15 * rate),
+                    min(0.95, 0.2 * rate),
+                    min(0.95, 0.25 * rate)
+                ]
+                
+                # Set testing strategy
+                self.enable_differential_testing(strategy == 'differential')
+                
+                # Reset and run simulation
+                # Reset farmers' parameters
+                for farmer in self.farmers:
+                    if farmer.risk_preference == Farmer.RISK_NEUTRAL:
+                        farmer.alpha = np.random.uniform(0.4, 0.6)
+                        farmer.technology_level = np.random.uniform(0.3, 0.7)
+                    elif farmer.risk_preference == Farmer.RISK_AVERSE:
+                        farmer.alpha = np.random.uniform(0.6, 0.8)
+                        farmer.technology_level = np.random.uniform(0.5, 0.8)
+                    elif farmer.risk_preference == Farmer.RISK_LOVING:
+                        farmer.alpha = np.random.uniform(0.1, 0.4)
+                        farmer.technology_level = np.random.uniform(0.2, 0.5)
+                
+                # Run simulation
+                print(f"\nRunning simulation with {strategy} testing strategy at rate {rate}...")
+                self.run_simulation()
+                
+                # Store results
+                results['testing_rate'].append(rate)
+                results['strategy'].append(strategy)
+                results['mean_contamination'].append(self.mean_contamination_history[-1])
+                results['mean_cost'].append(self.mean_cost_history[-1])
+                
+                for risk_type in [Farmer.RISK_NEUTRAL, Farmer.RISK_AVERSE, Farmer.RISK_LOVING]:
+                    type_name = Farmer.RISK_TYPE_NAMES[risk_type].lower().replace(' ', '_')
+                    results[f'{type_name}_contamination'].append(self.mean_contamination_history_by_risk[risk_type][-1])
+                    results[f'{type_name}_cost'].append(self.mean_cost_history_by_risk[risk_type][-1])
+                
+                # Save results for this configuration
+                sub_dir = os.path.join(output_dir, f"{strategy}_rate_{rate}")
+                os.makedirs(sub_dir, exist_ok=True)
+                self.save_results_to_file(sub_dir)
+                self.plot_results(sub_dir)
+        
+        # Restore original parameters
+        self.beta = current_beta
+        if hasattr(self, 'differential_testing'):
+            self.differential_testing = current_differential_testing
+        
+        # Create comparative plots
+        self._plot_testing_strategy_comparison(results, output_dir)
+        
+        # Return results for further analysis
+        return results
+    
     def run_simulation(self):
         """
         Run the simulation for the specified number of time steps.
         """
+        # Calculate regional benchmark for contamination detection (h in Eq. 6)
+        # Initially set to 1 detection per region, but will adjust with data
+        regional_benchmark = 1
+        
+        # Random innovation probability (affects D₃)
+        innovation_prob = 0.05
+        
         for t in range(self.time_steps):
-            # Track metrics for this time step
             alphas = []
             contamination_rates = []
             costs = []
@@ -493,21 +723,97 @@ class FarmerRiskControlModel:
                 Farmer.RISK_LOVING: []
             }
             
+            # First pass: calculate contamination rates and simulate testing for all farmers
+            # This ensures all farmers have correct flags before updating for next step
+            for farmer in self.farmers:
+                # Calculate contamination probability based on current alpha and technology
+                # Will be used to determine if produce is actually contaminated
+                prev_contamination_rate = farmer.contamination_rate
+                if prev_contamination_rate is None:
+                    # First time step, calculate initial rate
+                    prev_contamination_rate = farmer.calculate_contamination_rate(0)
+                
+                # Simulate testing and contamination detection
+                # 1. Determine if the farmer's produce will be tested at any point
+                beta1, beta2, beta3, beta4 = self.beta
+                
+                # Apply different testing rates based on risk preference if differential testing is enabled
+                # This implements Task 2 - Differential Testing Strategies
+                farmer_type_adjustment = 1.0
+                if hasattr(self, 'differential_testing') and self.differential_testing:
+                    if farmer.risk_preference == Farmer.RISK_LOVING:
+                        # Higher testing for risk-loving farmers
+                        farmer_type_adjustment = 1.5
+                    elif farmer.risk_preference == Farmer.RISK_AVERSE:
+                        # Lower testing for risk-averse farmers
+                        farmer_type_adjustment = 0.7
+                
+                # Apply the adjustment
+                adjusted_beta1 = min(0.95, beta1 * farmer_type_adjustment)
+                adjusted_beta2 = min(0.95, beta2 * farmer_type_adjustment)
+                adjusted_beta3 = min(0.95, beta3 * farmer_type_adjustment)
+                adjusted_beta4 = min(0.95, beta4 * farmer_type_adjustment)
+                
+                # 2. Calculate if farmer is tested at any point (D₁)
+                if np.random.random() < (1 - (1-adjusted_beta1)*(1-adjusted_beta2)*(1-adjusted_beta3)*(1-adjusted_beta4)):
+                    farmer.was_tested = True
+                else:
+                    farmer.was_tested = False
+                
+                # 3. Determine if contamination is actually present
+                is_contaminated = np.random.random() < prev_contamination_rate
+                    
+                # 4. Simulate if contamination is detected (D₂)
+                detection_probability = 0
+                if is_contaminated:
+                    # Probability of detection at any of the four test points
+                    test_detection_prob = 1 - (1-adjusted_beta1)*(1-adjusted_beta2)*(1-adjusted_beta3)*(1-adjusted_beta4)
+                    
+                    # Add probability of illness identification through tracing
+                    traceback_detection_prob = (1-adjusted_beta1)*(1-adjusted_beta2)*(1-adjusted_beta3)*(1-adjusted_beta4) * self.P
+                    
+                    # Combined detection probability (assuming test detection is independent from traceback)
+                    detection_probability = test_detection_prob + traceback_detection_prob - (test_detection_prob * traceback_detection_prob)
+                    
+                    # Account for imperfect testing detection (low identification probability)
+                    if hasattr(self, 'test_identification_prob'):
+                        detection_probability *= self.test_identification_prob
+                    
+                    # Check if detected
+                    if np.random.random() < detection_probability:
+                        farmer.contamination_detected = True
+                    else:
+                        farmer.contamination_detected = False
+                else:
+                    farmer.contamination_detected = False
+                
+                # 5. Simulate technology innovation adoption (D₃)
+                if np.random.random() < innovation_prob:
+                    farmer.tech_innovation_adopted = True
+                else:
+                    farmer.tech_innovation_adopted = False
+            
+            # Second pass: update all farmers based on the testing results
+            detection_count = sum(1 for f in self.farmers if f.contamination_detected)
+            if t > 5:  # After some burn-in period
+                # Adjust the regional benchmark based on actual detection rates
+                regional_benchmark = max(1, detection_count * 0.8 / len(self.farmers))
+            
             for farmer in self.farmers:
                 # Random costs for effort and technology for each farmer
                 c_e = np.random.uniform(self.c_e_range[0], self.c_e_range[1])
                 c_k = np.random.uniform(self.c_k_range[0], self.c_k_range[1])
                 
-                # Get neighboring farmers (simple example: 2 random neighbors)
+                # Get neighboring farmers (random neighbors for simplicity, could be region-based)
                 neighbor_indices = np.random.choice(
                     [i for i in range(self.num_farmers) if i != farmer.id], 
-                    size=min(3, self.num_farmers-1), 
+                    size=min(5, self.num_farmers-1), 
                     replace=False
                 )
                 neighbors = [self.farmers[i] for i in neighbor_indices]
                 
-                # Update farmer
-                alpha, contamination_rate, cost = farmer.update(t, self.f, self.beta, self.P, c_e, c_k, neighbors)
+                # Update farmer with the current regional benchmark
+                alpha, contamination_rate, cost = farmer.update(t, self.f, self.beta, self.P, c_e, c_k, neighbors, regional_benchmark)
                 
                 # Track overall metrics
                 alphas.append(alpha)
@@ -541,7 +847,10 @@ class FarmerRiskControlModel:
                     self.mean_technology_history_by_risk[risk_type][t] = np.mean(technology_by_risk[risk_type])
             
             # Print current status
-            print(f"Time step {t}: Mean α = {self.mean_alpha_history[t]:.4f}, Mean contamination = {self.mean_contamination_history[t]:.4f}, Mean cost = {self.mean_cost_history[t]:.4f}")
+            contamination_pct = self.mean_contamination_history[t] * 100
+            detections_pct = (detection_count / len(self.farmers)) * 100
+            print(f"Time step {t}: Mean α = {self.mean_alpha_history[t]:.4f}, Mean contamination = {contamination_pct:.2f}%, " + 
+                  f"Detected = {detection_count} ({detections_pct:.2f}%), Mean cost = {self.mean_cost_history[t]:.2f}")
     
     def save_results_to_file(self, output_dir):
         """
@@ -735,4 +1044,4 @@ if __name__ == "__main__":
     model.save_results_to_file('results')
     
     # Plot the results
-    model.plot_results() 
+    model.plot_results()
