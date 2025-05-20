@@ -16,6 +16,10 @@ source venv/bin/activate
 echo "Installing requirements..."
 pip install -q -r requirements.txt
 
+# Generate mathematical equations report first
+echo "Generating mathematical equations visualization report..."
+python3 run_farmer_risk_control_model.py --output_dir results/mathematical_foundations --math_equations
+
 # Create output directories
 echo "Creating output directories..."
 mkdir -p results/baseline
@@ -129,11 +133,32 @@ cat > results/index.html << EOL
         .scenario-link:hover {
             background-color: #003d82;
         }
+        .math-foundations {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e7f5ff;
+            border-radius: 8px;
+            border-left: 5px solid #0056b3;
+        }
+        .math-foundations h2 {
+            margin-top: 0;
+            color: #0056b3;
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
     <h1>Farmer Risk Control Behaviors - Simulation Results</h1>
     
+    <div class="math-foundations">
+        <h2>Mathematical Foundations</h2>
+        <p>
+            Explore the mathematical foundations of the model, including visualizations of key equations and their effects on farmer behavior.
+        </p>
+        <a href="mathematical_foundations/equations/mathematical_foundations.html" class="scenario-link">View Mathematical Foundations</a>
+    </div>
+    
+    <h2>Simulation Scenarios</h2>
     <div class="scenario-grid">
         <div class="scenario-card">
             <div class="scenario-title">Baseline Scenario</div>

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import os
+import pandas as pd
 
 class Farmer:
     """
@@ -410,7 +411,8 @@ class FarmerRiskControlModel:
     """
     def __init__(self, num_farmers=100, time_steps=50, seed=None,
                  risk_neutral_pct=0.33, risk_averse_pct=0.33, risk_loving_pct=0.34,
-                 penalty_multiplier=1.0, testing_multiplier=1.0, id_probability=0.5):
+                 penalty_multiplier=1.0, testing_multiplier=1.0, id_probability=0.5,
+                 initial_contamination_multiplier=1.0, testing_cost_per_sample=15.0):
         """
         Initialize the ABM.
         
@@ -434,12 +436,17 @@ class FarmerRiskControlModel:
             Multiplier for testing probabilities
         id_probability : float, optional
             Probability that a farmer's eligible products can be identified
+        initial_contamination_multiplier : float, optional
+            Multiplier for initial contamination rates
+        testing_cost_per_sample : float, optional
+            Cost per test sample
         """
         if seed is not None:
             np.random.seed(seed)
             
         self.num_farmers = num_farmers
         self.time_steps = time_steps
+        self.testing_cost_per_sample = testing_cost_per_sample
         
         # Ensure percentages sum to 1
         total = risk_neutral_pct + risk_averse_pct + risk_loving_pct
@@ -473,6 +480,7 @@ class FarmerRiskControlModel:
         self.P = id_probability  # Probability of identifying eligible products
         self.c_e_range = (200, 500)    # Range for effort cost
         self.c_k_range = (500, 1000)   # Range for technology cost
+        self.initial_contamination_multiplier = initial_contamination_multiplier
         
         # Initialize farmers with random initial values
         self.farmers = []
@@ -522,10 +530,21 @@ class FarmerRiskControlModel:
             )
             self.farmers.append(farmer)
         
+        # Apply initial contamination multiplier
+        for farmer in self.farmers:
+            farmer.contamination_rate = farmer.calculate_contamination_rate(0) * initial_contamination_multiplier
+        
         # Initialize history arrays
         self.mean_alpha_history = np.zeros(time_steps)
         self.mean_contamination_history = np.zeros(time_steps)
         self.mean_cost_history = np.zeros(time_steps)
+        
+        # Initialize cost tracking arrays
+        self.testing_cost_history = np.zeros(time_steps)
+        self.penalty_cost_history = np.zeros(time_steps)
+        self.effort_cost_history = np.zeros(time_steps)
+        self.technology_cost_history = np.zeros(time_steps)
+        self.cost_change_history = np.zeros(time_steps-1) if time_steps > 1 else np.zeros(1)
         
         self.mean_alpha_history_by_risk = {
             Farmer.RISK_NEUTRAL: np.zeros(time_steps),
@@ -543,6 +562,11 @@ class FarmerRiskControlModel:
             Farmer.RISK_LOVING: np.zeros(time_steps)
         }
         self.mean_technology_history_by_risk = {
+            Farmer.RISK_NEUTRAL: np.zeros(time_steps),
+            Farmer.RISK_AVERSE: np.zeros(time_steps),
+            Farmer.RISK_LOVING: np.zeros(time_steps)
+        }
+        self.testing_cost_history_by_risk = {
             Farmer.RISK_NEUTRAL: np.zeros(time_steps),
             Farmer.RISK_AVERSE: np.zeros(time_steps),
             Farmer.RISK_LOVING: np.zeros(time_steps)
@@ -685,6 +709,93 @@ class FarmerRiskControlModel:
         # Return results for further analysis
         return results
     
+    def _plot_testing_strategy_comparison(self, results, output_dir):
+        """
+        Plot the comparative results of different testing strategies.
+        
+        Parameters:
+        -----------
+        results : dict
+            Dictionary containing the results of the testing strategy analysis
+        output_dir : str
+            Directory to save the plots
+        """
+        # Convert results to DataFrame for easier plotting
+        results_df = pd.DataFrame({
+            'testing_rate': results['testing_rate'],
+            'strategy': results['strategy'],
+            'mean_contamination': results['mean_contamination'],
+            'mean_cost': results['mean_cost'],
+            'risk_neutral_contamination': results['risk_neutral_contamination'],
+            'risk_averse_contamination': results['risk_averse_contamination'],
+            'risk_loving_contamination': results['risk_loving_contamination'],
+            'risk_neutral_cost': results['risk_neutral_cost'],
+            'risk_averse_cost': results['risk_averse_cost'],
+            'risk_loving_cost': results['risk_loving_cost']
+        })
+        
+        # Plot mean contamination by testing rate and strategy
+        plt.figure(figsize=(10, 6))
+        for strategy in ['uniform', 'differential']:
+            strategy_data = results_df[results_df['strategy'] == strategy]
+            plt.plot(strategy_data['testing_rate'], strategy_data['mean_contamination'], 
+                     'o-', label=f"{strategy.capitalize()} Testing")
+        
+        plt.xlabel('Testing Rate Multiplier')
+        plt.ylabel('Mean Contamination Rate')
+        plt.title('Effect of Testing Strategy on Mean Contamination Rate')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, 'strategy_contamination_comparison.png'))
+        plt.close()
+        
+        # Plot mean cost by testing rate and strategy
+        plt.figure(figsize=(10, 6))
+        for strategy in ['uniform', 'differential']:
+            strategy_data = results_df[results_df['strategy'] == strategy]
+            plt.plot(strategy_data['testing_rate'], strategy_data['mean_cost'], 
+                     'o-', label=f"{strategy.capitalize()} Testing")
+        
+        plt.xlabel('Testing Rate Multiplier')
+        plt.ylabel('Mean Cost')
+        plt.title('Effect of Testing Strategy on Mean Cost')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, 'strategy_cost_comparison.png'))
+        plt.close()
+        
+        # Plot contamination by risk type for each strategy
+        testing_rates = sorted(set(results_df['testing_rate']))
+        strategies = ['uniform', 'differential']
+        
+        for rate in testing_rates:
+            plt.figure(figsize=(12, 8))
+            
+            rate_data = results_df[results_df['testing_rate'] == rate]
+            
+            x = np.arange(len(strategies))
+            width = 0.25
+            
+            risk_types = ['risk_neutral', 'risk_averse', 'risk_loving']
+            colors = ['blue', 'green', 'red']
+            
+            for i, risk_type in enumerate(risk_types):
+                contamination_values = [
+                    rate_data[rate_data['strategy'] == strategy][f'{risk_type}_contamination'].values[0]
+                    for strategy in strategies
+                ]
+                plt.bar(x + i*width - width, contamination_values, width, 
+                        label=f"{risk_type.replace('_', ' ').title()}", color=colors[i])
+            
+            plt.xlabel('Testing Strategy')
+            plt.ylabel('Contamination Rate')
+            plt.title(f'Contamination Rate by Risk Type (Testing Rate = {rate})')
+            plt.xticks(x, [s.capitalize() for s in strategies])
+            plt.legend()
+            plt.grid(True, axis='y')
+            plt.savefig(os.path.join(output_dir, f'risk_type_contamination_rate_{rate}.png'))
+            plt.close()
+    
     def run_simulation(self):
         """
         Run the simulation for the specified number of time steps.
@@ -700,6 +811,10 @@ class FarmerRiskControlModel:
             alphas = []
             contamination_rates = []
             costs = []
+            testing_costs = []
+            penalty_costs = []
+            effort_costs = []
+            technology_costs = []
             
             # Track metrics by risk preference
             alphas_by_risk = {
@@ -722,12 +837,22 @@ class FarmerRiskControlModel:
                 Farmer.RISK_AVERSE: [],
                 Farmer.RISK_LOVING: []
             }
+            testing_costs_by_risk = {
+                Farmer.RISK_NEUTRAL: [],
+                Farmer.RISK_AVERSE: [],
+                Farmer.RISK_LOVING: []
+            }
             
             # First pass: calculate contamination rates and simulate testing for all farmers
-            # This ensures all farmers have correct flags before updating for next step
+            total_tests_conducted = 0
+            tests_by_risk_type = {
+                Farmer.RISK_NEUTRAL: 0,
+                Farmer.RISK_AVERSE: 0,
+                Farmer.RISK_LOVING: 0
+            }
+            
             for farmer in self.farmers:
                 # Calculate contamination probability based on current alpha and technology
-                # Will be used to determine if produce is actually contaminated
                 prev_contamination_rate = farmer.contamination_rate
                 if prev_contamination_rate is None:
                     # First time step, calculate initial rate
@@ -738,7 +863,6 @@ class FarmerRiskControlModel:
                 beta1, beta2, beta3, beta4 = self.beta
                 
                 # Apply different testing rates based on risk preference if differential testing is enabled
-                # This implements Task 2 - Differential Testing Strategies
                 farmer_type_adjustment = 1.0
                 if hasattr(self, 'differential_testing') and self.differential_testing:
                     if farmer.risk_preference == Farmer.RISK_LOVING:
@@ -754,16 +878,30 @@ class FarmerRiskControlModel:
                 adjusted_beta3 = min(0.95, beta3 * farmer_type_adjustment)
                 adjusted_beta4 = min(0.95, beta4 * farmer_type_adjustment)
                 
-                # 2. Calculate if farmer is tested at any point (D₁)
-                if np.random.random() < (1 - (1-adjusted_beta1)*(1-adjusted_beta2)*(1-adjusted_beta3)*(1-adjusted_beta4)):
+                # Calculate testing probability at each stage
+                test_at_stage1 = adjusted_beta1
+                test_at_stage2 = (1 - adjusted_beta1) * adjusted_beta2
+                test_at_stage3 = (1 - adjusted_beta1) * (1 - adjusted_beta2) * adjusted_beta3
+                test_at_stage4 = (1 - adjusted_beta1) * (1 - adjusted_beta2) * (1 - adjusted_beta3) * adjusted_beta4
+                
+                # Calculate expected number of tests for this farmer
+                expected_tests = test_at_stage1 + test_at_stage2 + test_at_stage3 + test_at_stage4
+                
+                # Track total tests conducted
+                farmer_tests = np.random.binomial(1, expected_tests)
+                total_tests_conducted += farmer_tests
+                tests_by_risk_type[farmer.risk_preference] += farmer_tests
+                
+                # Determine if farmer was tested at any point
+                if farmer_tests > 0 or np.random.random() < expected_tests:
                     farmer.was_tested = True
                 else:
                     farmer.was_tested = False
                 
-                # 3. Determine if contamination is actually present
+                # Determine if contamination is actually present
                 is_contaminated = np.random.random() < prev_contamination_rate
-                    
-                # 4. Simulate if contamination is detected (D₂)
+                
+                # Simulate if contamination is detected (D₂)
                 detection_probability = 0
                 if is_contaminated:
                     # Probability of detection at any of the four test points
@@ -772,10 +910,10 @@ class FarmerRiskControlModel:
                     # Add probability of illness identification through tracing
                     traceback_detection_prob = (1-adjusted_beta1)*(1-adjusted_beta2)*(1-adjusted_beta3)*(1-adjusted_beta4) * self.P
                     
-                    # Combined detection probability (assuming test detection is independent from traceback)
+                    # Combined detection probability
                     detection_probability = test_detection_prob + traceback_detection_prob - (test_detection_prob * traceback_detection_prob)
                     
-                    # Account for imperfect testing detection (low identification probability)
+                    # Account for imperfect testing detection
                     if hasattr(self, 'test_identification_prob'):
                         detection_probability *= self.test_identification_prob
                     
@@ -787,50 +925,70 @@ class FarmerRiskControlModel:
                 else:
                     farmer.contamination_detected = False
                 
-                # 5. Simulate technology innovation adoption (D₃)
+                # Simulate technology innovation adoption (D₃)
                 if np.random.random() < innovation_prob:
                     farmer.tech_innovation_adopted = True
                 else:
                     farmer.tech_innovation_adopted = False
             
+            # Calculate testing cost for this time step
+            time_step_testing_cost = total_tests_conducted * self.testing_cost_per_sample
+            self.testing_cost_history[t] = time_step_testing_cost
+            
+            # Calculate testing costs by risk type
+            for risk_type in [Farmer.RISK_NEUTRAL, Farmer.RISK_AVERSE, Farmer.RISK_LOVING]:
+                risk_type_testing_cost = tests_by_risk_type[risk_type] * self.testing_cost_per_sample
+                self.testing_cost_history_by_risk[risk_type][t] = risk_type_testing_cost
+            
             # Second pass: update all farmers based on the testing results
             detection_count = sum(1 for f in self.farmers if f.contamination_detected)
             if t > 5:  # After some burn-in period
-                # Adjust the regional benchmark based on actual detection rates
-                regional_benchmark = max(1, detection_count * 0.8 / len(self.farmers))
+                # Update regional benchmark based on recent detection rate
+                regional_benchmark = max(1, detection_count / 2)  # At least 1 detection as benchmark
             
+            # Calculate neighbors for each farmer - all farmers know all others in this simplified model
             for farmer in self.farmers:
+                # Get all other farmers as neighbors (simplified network)
+                neighbors = [f for f in self.farmers if f.id != farmer.id]
+                
                 # Random costs for effort and technology for each farmer
                 c_e = np.random.uniform(self.c_e_range[0], self.c_e_range[1])
                 c_k = np.random.uniform(self.c_k_range[0], self.c_k_range[1])
                 
-                # Get neighboring farmers (random neighbors for simplicity, could be region-based)
-                neighbor_indices = np.random.choice(
-                    [i for i in range(self.num_farmers) if i != farmer.id], 
-                    size=min(5, self.num_farmers-1), 
-                    replace=False
+                # Update the farmer's risk control effort and technology
+                alpha, contamination_rate, cost = farmer.update(
+                    t, self.f, self.beta, self.P, c_e, c_k, neighbors, regional_benchmark
                 )
-                neighbors = [self.farmers[i] for i in neighbor_indices]
                 
-                # Update farmer with the current regional benchmark
-                alpha, contamination_rate, cost = farmer.update(t, self.f, self.beta, self.P, c_e, c_k, neighbors, regional_benchmark)
-                
-                # Track overall metrics
+                # Collect results
                 alphas.append(alpha)
                 contamination_rates.append(contamination_rate)
-                costs.append(cost)
+                if not np.isinf(cost) and not np.isnan(cost):
+                    costs.append(cost)
                 
-                # Track metrics by risk preference
+                # Collect results by risk preference
                 alphas_by_risk[farmer.risk_preference].append(alpha)
                 contamination_by_risk[farmer.risk_preference].append(contamination_rate)
-                costs_by_risk[farmer.risk_preference].append(cost)
+                if not np.isinf(cost) and not np.isnan(cost):
+                    costs_by_risk[farmer.risk_preference].append(cost)
                 technology_by_risk[farmer.risk_preference].append(farmer.technology_level)
+                
+                # Track cost components
+                effort_cost = c_e * alpha
+                tech_cost = c_k * farmer.technology_level
+                effort_costs.append(effort_cost)
+                technology_costs.append(tech_cost)
+                
+                # Calculate expected penalty cost (part of the total cost)
+                # This is a simplified approximation since we don't track actual penalties paid
+                expected_penalty = contamination_rate * sum(self.f) * 0.1  # Rough estimate of expected penalty
+                penalty_costs.append(expected_penalty)
             
-            # Store aggregate results
+            # Store aggregate results for this time step
             self.mean_alpha_history[t] = np.mean(alphas)
             self.mean_contamination_history[t] = np.mean(contamination_rates)
             
-            # Filter out infinite and nan values for cost calculation
+            # Filter out invalid costs
             valid_costs = [c for c in costs if not np.isinf(c) and not np.isnan(c)]
             self.mean_cost_history[t] = np.mean(valid_costs) if valid_costs else float('nan')
             
@@ -851,7 +1009,7 @@ class FarmerRiskControlModel:
             detections_pct = (detection_count / len(self.farmers)) * 100
             print(f"Time step {t}: Mean α = {self.mean_alpha_history[t]:.4f}, Mean contamination = {contamination_pct:.2f}%, " + 
                   f"Detected = {detection_count} ({detections_pct:.2f}%), Mean cost = {self.mean_cost_history[t]:.2f}")
-    
+
     def save_results_to_file(self, output_dir):
         """
         Save simulation results to files in the specified directory.
@@ -907,7 +1065,7 @@ class FarmerRiskControlModel:
                     f.write(f"{farmer.id},{risk_name},{t},{farmer.alpha_history[t]},"
                            f"{farmer.contamination_history[t]},{farmer.cost_history[t]},"
                            f"{farmer.technology_history[t]}\n")
-    
+
     def plot_results(self, output_dir='results'):
         """
         Plot the simulation results.
@@ -919,7 +1077,7 @@ class FarmerRiskControlModel:
         """
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-            
+        
         time_steps_range = range(self.time_steps)
         
         # Create a figure with 3 subplots
@@ -1023,6 +1181,229 @@ class FarmerRiskControlModel:
         plt.legend()
         plt.savefig(os.path.join(output_dir, 'alpha_distribution_by_risk.png'))
         plt.close()
+
+    def plot_mathematical_equations(self, output_dir='results/equations'):
+        """
+        Create visual representations of the mathematical equations used in the model.
+        
+        Parameters:
+        -----------
+        output_dir : str, optional
+            Directory to save the equation visualization plots
+        """
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        # Plot 1: Contamination Rate Function (Equation 3)
+        # σ_j^t = e^(-c_j^t * k_j)
+        effort_values = np.linspace(0.05, 0.95, 100)
+        tech_levels = [0.2, 0.4, 0.6, 0.8, 1.0]
+        
+        plt.figure(figsize=(10, 6))
+        for tech in tech_levels:
+            contamination_rates = [np.exp(-effort * tech) for effort in effort_values]
+            plt.plot(effort_values, contamination_rates, label=f'Technology Level (k) = {tech}')
+        
+        plt.xlabel('Risk Control Effort (c)')
+        plt.ylabel('Contamination Rate (σ)')
+        plt.title('Equation 3: Contamination Rate as a Function of Effort and Technology')
+        plt.grid(True)
+        plt.legend()
+        # Add equation as text
+        plt.text(0.1, 0.2, r'$\sigma_j^t = e^{-c_j^t \cdot k_j}$', fontsize=14, 
+                 bbox=dict(facecolor='white', alpha=0.8))
+        plt.savefig(os.path.join(output_dir, 'equation3_contamination_rate.png'))
+        plt.close()
+        
+        # Plot 2: Effect of Risk Preference on Cost Perception
+        alpha_values = np.linspace(0.05, 0.95, 100)
+        base_cost = 1000  # Base cost
+        
+        risk_coef = 1.0  # Risk coefficient
+        risk_averse_costs = [base_cost * (1 + risk_coef * 0.5) for _ in alpha_values]
+        risk_neutral_costs = [base_cost for _ in alpha_values]
+        risk_loving_costs = [base_cost * (1 - risk_coef * 0.3) for _ in alpha_values]
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(alpha_values, risk_averse_costs, label='Risk Averse')
+        plt.plot(alpha_values, risk_neutral_costs, label='Risk Neutral')
+        plt.plot(alpha_values, risk_loving_costs, label='Risk Loving')
+        plt.xlabel('Risk Control Effort (α)')
+        plt.ylabel('Perceived Cost')
+        plt.title('Effect of Risk Preference on Cost Perception')
+        plt.grid(True)
+        plt.legend()
+        # Add equation as text
+        plt.text(0.1, 1300, r'Risk Averse: Cost × (1 + risk_coef × 0.5)', fontsize=12,
+                bbox=dict(facecolor='white', alpha=0.8))
+        plt.text(0.1, 1200, r'Risk Neutral: Cost', fontsize=12,
+                bbox=dict(facecolor='white', alpha=0.8))
+        plt.text(0.1, 1100, r'Risk Loving: Cost × (1 - risk_coef × 0.3)', fontsize=12,
+                bbox=dict(facecolor='white', alpha=0.8))
+        plt.savefig(os.path.join(output_dir, 'risk_preference_cost_effect.png'))
+        plt.close()
+        
+        # Plot 3: Cost Function Components (Equation 4)
+        alpha_values = np.linspace(0.05, 0.95, 100)
+        
+        # Define sample parameters
+        f1, f2, f3, f4, f5 = 100, 300, 600, 1000, 5000  # Penalties
+        beta1, beta2, beta3, beta4 = 0.1, 0.15, 0.2, 0.25  # Testing probabilities
+        P = 0.5  # Identification probability
+        c_e, c_k = 300, 700  # Effort and technology costs
+        k = 0.5  # Technology level
+        
+        # Calculate cost components
+        direct_costs = [c_e * alpha + c_k * k for alpha in alpha_values]
+        
+        # Expected penalties
+        penalties = []
+        for alpha in alpha_values:
+            contamination = np.exp(-alpha * k)  # Calculate contamination rate
+            # Expected penalty calculation from Equation 4
+            expected_penalty = (
+                f1 * beta1 * contamination +
+                f2 * (1 - beta1) * beta2 * contamination +
+                f3 * (1 - beta1) * (1 - beta2) * beta3 * contamination +
+                f4 * (1 - beta1) * (1 - beta2) * (1 - beta3) * beta4 * contamination +
+                f5 * (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4) * P * contamination
+            )
+            # Normalize by pass probability
+            pass_probability = (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4)
+            expected_penalty = expected_penalty / pass_probability if pass_probability > 0 else float('inf')
+            penalties.append(expected_penalty)
+        
+        # Total costs
+        total_costs = [d + p for d, p in zip(direct_costs, penalties)]
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(alpha_values, direct_costs, label='Direct Costs (Effort + Technology)')
+        plt.plot(alpha_values, penalties, label='Expected Penalties')
+        plt.plot(alpha_values, total_costs, label='Total Cost')
+        plt.xlabel('Risk Control Effort (α)')
+        plt.ylabel('Cost')
+        plt.title('Equation 4: Cost Function Components')
+        plt.grid(True)
+        plt.legend()
+        # Add simplified equation as text
+        plt.text(0.1, 6000, r'$Total Cost = Direct Costs + \frac{Expected Penalties}{Pass Probability}$', 
+                fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
+        plt.savefig(os.path.join(output_dir, 'equation4_cost_function.png'))
+        plt.close()
+        
+        # Plot 4: Optimal Contamination Rate (Equation 5)
+        alpha_values = np.linspace(0.05, 0.95, 100)
+        
+        # Calculate costs for different effort levels
+        costs = []
+        for alpha in alpha_values:
+            contamination = np.exp(-alpha * k)
+            # Cost calculation from Equation 4
+            expected_penalty = (
+                f1 * beta1 * contamination +
+                f2 * (1 - beta1) * beta2 * contamination +
+                f3 * (1 - beta1) * (1 - beta2) * beta3 * contamination +
+                f4 * (1 - beta1) * (1 - beta2) * (1 - beta3) * beta4 * contamination +
+                f5 * (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4) * P * contamination
+            )
+            pass_probability = (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4)
+            penalty_cost = expected_penalty / pass_probability if pass_probability > 0 else float('inf')
+            direct_cost = c_e * alpha + c_k * k
+            costs.append(direct_cost + penalty_cost)
+        
+        # Find the optimal alpha (minimum cost)
+        valid_costs = [c if not np.isinf(c) and not np.isnan(c) else float('inf') for c in costs]
+        min_cost_idx = np.argmin(valid_costs)
+        optimal_alpha = alpha_values[min_cost_idx]
+        min_cost = valid_costs[min_cost_idx]
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(alpha_values, costs)
+        plt.axvline(x=optimal_alpha, color='r', linestyle='--', 
+                  label=f'Optimal α = {optimal_alpha:.2f}')
+        plt.scatter([optimal_alpha], [min_cost], color='red', s=100, zorder=5)
+        plt.xlabel('Risk Control Effort (α)')
+        plt.ylabel('Total Cost')
+        plt.title('Equation 5: Finding Optimal Risk Control Effort')
+        plt.grid(True)
+        plt.legend()
+        # Add equation as text
+        plt.text(0.6, min_cost * 0.8, 
+                r'$\alpha^* = \arg\min_{\alpha} \: Cost(\alpha)$', 
+                fontsize=14, bbox=dict(facecolor='white', alpha=0.8))
+        plt.savefig(os.path.join(output_dir, 'equation5_optimal_effort.png'))
+        plt.close()
+        
+        # Plot 5: Risk Preference Effect on Optimal Alpha
+        # Calculate optimal alpha for different risk preferences
+        risk_preferences = [Farmer.RISK_NEUTRAL, Farmer.RISK_AVERSE, Farmer.RISK_LOVING]
+        risk_coefs = [1.0, 1.5, 0.7]  # Coefficients for neutral, averse, loving
+        
+        plt.figure(figsize=(12, 8))
+        
+        for i, (risk_pref, risk_coef) in enumerate(zip(risk_preferences, risk_coefs)):
+            modified_costs = []
+            
+            for alpha in alpha_values:
+                contamination = np.exp(-alpha * k)
+                
+                # Adjust penalties based on risk preference
+                if risk_pref == Farmer.RISK_AVERSE:
+                    penalty_factor = 1 + risk_coef * 0.5
+                    modified_c_e = c_e * 0.8
+                elif risk_pref == Farmer.RISK_LOVING:
+                    penalty_factor = 1 - risk_coef * 0.3
+                    modified_c_e = c_e * 1.5
+                else:
+                    penalty_factor = 1.0
+                    modified_c_e = c_e
+                
+                # Apply risk preference adjustment to penalties
+                adjusted_f1 = f1 * penalty_factor
+                adjusted_f2 = f2 * penalty_factor
+                adjusted_f3 = f3 * penalty_factor
+                adjusted_f4 = f4 * penalty_factor
+                adjusted_f5 = f5 * penalty_factor
+                
+                # Calculate expected penalty with adjusted values
+                expected_penalty = (
+                    adjusted_f1 * beta1 * contamination +
+                    adjusted_f2 * (1 - beta1) * beta2 * contamination +
+                    adjusted_f3 * (1 - beta1) * (1 - beta2) * beta3 * contamination +
+                    adjusted_f4 * (1 - beta1) * (1 - beta2) * (1 - beta3) * beta4 * contamination +
+                    adjusted_f5 * (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4) * P * contamination
+                )
+                pass_probability = (1 - beta1) * (1 - beta2) * (1 - beta3) * (1 - beta4)
+                penalty_cost = expected_penalty / pass_probability if pass_probability > 0 else float('inf')
+                direct_cost = modified_c_e * alpha + c_k * k
+                modified_costs.append(direct_cost + penalty_cost)
+            
+            # Find optimal alpha for this risk preference
+            valid_costs = [c if not np.isinf(c) and not np.isnan(c) else float('inf') for c in modified_costs]
+            min_cost_idx = np.argmin(valid_costs)
+            optimal_alpha = alpha_values[min_cost_idx]
+            min_cost = valid_costs[min_cost_idx]
+            
+            # Plot cost curve
+            color = ['blue', 'green', 'red'][i]
+            plt.plot(alpha_values, modified_costs, color=color, 
+                    label=f"{Farmer.RISK_TYPE_NAMES[risk_pref]}")
+            
+            # Mark optimal point
+            plt.axvline(x=optimal_alpha, color=color, linestyle='--')
+            plt.scatter([optimal_alpha], [min_cost], color=color, s=100, zorder=5)
+            plt.text(optimal_alpha + 0.02, min_cost, 
+                    f'α* = {optimal_alpha:.2f}', color=color, fontsize=12)
+        
+        plt.xlabel('Risk Control Effort (α)')
+        plt.ylabel('Total Cost')
+        plt.title('Effect of Risk Preference on Optimal Risk Control Effort')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, 'risk_preference_optimal_effort.png'))
+        plt.close()
+        
+        print(f"Mathematical equation visualizations saved to '{output_dir}'")
 
 
 # Example of how to use the model

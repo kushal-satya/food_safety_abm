@@ -111,6 +111,7 @@ chmod +x run.sh
 - `--risk_averse_pct`: Percentage of farmers that are risk averse (default: 0.33)
 - `--risk_loving_pct`: Percentage of farmers that are risk loving (default: 0.34)
 - `--html_report`: Generate an interactive HTML report with all plots
+- `--math_equations`: Generate a report visualizing the mathematical foundations of the model
 
 ## Results and Analysis
 
@@ -132,6 +133,15 @@ The simulation produces various outputs:
 
 ### Interactive Report
 When the `--html_report` option is used, the model generates an interactive HTML report (`report.html`) that includes all plots with detailed explanations.
+
+### Mathematical Equation Visualizations
+When the `--math_equations` option is used, the model generates an interactive HTML report (`mathematical_foundations.html`) that includes visualizations of the key mathematical equations and their effects:
+
+- `equation3_contamination_rate.png`: Visualization of the contamination rate function showing how risk control effort and technology affect contamination
+- `risk_preference_cost_effect.png`: How risk preferences affect perceived costs
+- `equation4_cost_function.png`: Components of the cost function (direct costs vs. expected penalties)
+- `equation5_optimal_effort.png`: Finding the optimal risk control effort that minimizes cost
+- `risk_preference_optimal_effort.png`: How different risk preferences lead to different optimal effort levels
 
 ## Model Implementation Details
 

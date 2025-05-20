@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from abm.farmer_risk_control_model import FarmerRiskControlModel
 from abm.visualize_results import analyze_model_results, generate_html_report
+from abm.visualize_equations import generate_equation_html_report
 
 def parse_args():
     """Parse command line arguments."""
@@ -65,6 +66,10 @@ def parse_args():
         '--html_report', action='store_true',
         help='Generate HTML report with all plots'
     )
+    parser.add_argument(
+        '--math_equations', action='store_true',
+        help='Generate HTML report with mathematical equations and visualizations'
+    )
     return parser.parse_args()
 
 def setup_model_parameters(args):
@@ -105,6 +110,15 @@ def main():
     
     # Ensure output directory exists
     ensure_directory(args.output_dir)
+    
+    # Check if only generating math equations report without running simulation
+    if args.math_equations and not args.analyze and not args.html_report:
+        print("Generating mathematical equations report...")
+        equations_dir = os.path.join(args.output_dir, 'equations')
+        generate_equation_html_report(equations_dir)
+        print(f"Mathematical equations report generated at {os.path.join(equations_dir, 'mathematical_foundations.html')}")
+        print(f"View it in your browser by opening: file://{os.path.abspath(os.path.join(equations_dir, 'mathematical_foundations.html'))}")
+        return
     
     # Set up model parameters
     params = setup_model_parameters(args)
@@ -160,6 +174,13 @@ def main():
         print("Plotting basic results...")
         model.plot_results(args.output_dir)
     
+    # Generate mathematical equations report if requested
+    if args.math_equations:
+        print("Generating mathematical equations report...")
+        equations_dir = os.path.join(args.output_dir, 'equations')
+        generate_equation_html_report(equations_dir)
+        print(f"Mathematical equations report generated at {os.path.join(equations_dir, 'mathematical_foundations.html')}")
+    
     print("Simulation complete!")
     print(f"Results saved in the '{args.output_dir}' directory")
     
@@ -167,6 +188,11 @@ def main():
         html_path = os.path.join(args.output_dir, 'report.html')
         print(f"HTML report available at: {html_path}")
         print(f"View it in your browser by opening: file://{os.path.abspath(html_path)}")
+        
+    if args.math_equations:
+        math_html_path = os.path.join(args.output_dir, 'equations', 'mathematical_foundations.html')
+        print(f"Mathematical equations report available at: {math_html_path}")
+        print(f"View it in your browser by opening: file://{os.path.abspath(math_html_path)}")
 
 if __name__ == "__main__":
     main() 
