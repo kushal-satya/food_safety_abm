@@ -82,5 +82,5 @@ class Parameters(object):
         self.unit_trans_cost = 0.007
         self.cost_indicator = 1
         self.F_P_distance = 5
-        self.P_D_distance = 2983
-        self.D_R_distance = 11
+        self.P_D_distance = 2983 # use california napa valley to NYC distance i guess, 2800?? 
+        self.D_R_distance = 11 # use 
