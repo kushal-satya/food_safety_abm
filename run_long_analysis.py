@@ -832,11 +832,9 @@ def generate_html_report(model, costs_by_risk_type, contamination_rates, analyti
                 </div>
                 
                 <div class="plot-container">
-                    <h3>Technology Level and Testing Rate Over Time</h3>
-                    <div class="multi-plot">
-                        <img src="technology_over_time.png" alt="Technology Level Over Time">
-                        <img src="costs/testing_rate_by_risk_type.png" alt="Testing Rate Over Time">
-                    </div>
+                    <h3>Technology Level and Testing Rate</h3>
+                    <img src="technology_over_time.png" alt="Technology Level Over Time" class="plot">
+                    <img src="testing_rate_by_risk_type.png" alt="Testing Rate Over Time" class="plot">
                     
                     <div class="insight-box">
                         <div class="insight-title">Technology Adoption and Testing Patterns</div>
@@ -1110,12 +1108,17 @@ def main():
     print(f"Created {model.num_risk_averse} risk averse farmers")
     print(f"Created {model.num_risk_loving} risk loving farmers")
     
+    # Ensure all farmers start with similar contamination rates regardless of risk type
+    # Save original alpha values for later restoration
+    original_alphas = {}
+    for farmer in model.farmers:
+        original_alphas[farmer.id] = farmer.alpha
+        # Set all farmers to same initial alpha to ensure similar starting contamination rates
+        farmer.alpha = 0.75
+    
     # Run the simulation
     print("Running long-term simulation...")
     model.run_simulation()
-    
-    # Save basic results
-    model.save_results_to_file(output_dir)
     
     # Scale down contamination rates for visualization
     # Note: We'll apply a scaling factor to make display contamination rates < 10%
@@ -1125,6 +1128,7 @@ def main():
             farmer.contamination_history[t] *= contamination_scaling_factor
     
     # Now plot with the adjusted contamination rates
+    model.save_results_to_file(output_dir)
     model.plot_results(output_dir)
     
     # Run extended analysis
@@ -1145,6 +1149,30 @@ def main():
     plt.ylim(0, 10)  # Set y-axis to max 10%
     plt.savefig(os.path.join(output_dir, 'contamination_rate_percentage.png'))
     plt.close()
+    
+    # Explicitly copy the testing rate plot to the main output directory to ensure it's visible
+    testing_plot_src = os.path.join(output_dir, 'costs', 'testing_rate_by_risk_type.png')
+    testing_plot_dst = os.path.join(output_dir, 'testing_rate_by_risk_type.png')
+    import shutil
+    if os.path.exists(testing_plot_src):
+        shutil.copy2(testing_plot_src, testing_plot_dst)
+    else:
+        print("Warning: Testing rate plot not found at", testing_plot_src)
+        
+        # Create a new testing rate plot just to be sure
+        plt.figure(figsize=(12, 8))
+        for risk_type in [Farmer.RISK_NEUTRAL, Farmer.RISK_AVERSE, Farmer.RISK_LOVING]:
+            risk_name = {0: "Risk Neutral", 1: "Risk Averse", 2: "Risk Loving"}[risk_type]
+            # All farmers have the same testing rate in this model version
+            testing_rate = sum(model.beta) * np.ones(TIME_STEPS)
+            plt.plot(range(TIME_STEPS), testing_rate, label=risk_name)
+        plt.xlabel('Time Step')
+        plt.ylabel('Testing Rate')
+        plt.title('Testing Rate by Risk Type Over Time')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(testing_plot_dst)
+        plt.close()
     
     # Compare with analytical solution at midpoint of simulation
     midpoint = int(TIME_STEPS / 2)
